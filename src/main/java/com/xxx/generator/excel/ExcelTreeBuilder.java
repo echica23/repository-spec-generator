@@ -16,6 +16,7 @@ import java.util.Set;
 public class ExcelTreeBuilder {
 
     private static final String INDENT = "  ";
+    private static final String DASH = "-";
     static final String INPUT_SECTION = "●INPUT";
     static final String OUTPUT_SECTION = "●OUTPUT";
 
@@ -40,11 +41,19 @@ public class ExcelTreeBuilder {
             }
         }
 
-        if (!method.outputTypes().isEmpty()) {
+        if (hasReturnOutput(method)) {
             rows.add(new ExcelTreeRow(OUTPUT_SECTION, 0, "", "", "", "", "", ""));
             int outputItemNumber = 1;
-            for (String outputType : method.outputTypes()) {
-                outputItemNumber = appendTypeTree(rows, outputType, outputType, 0, outputItemNumber, typeMap, new HashSet<>());
+            for (String outputType : resolveOutputTypes(method)) {
+                outputItemNumber = appendTypeTree(
+                        rows,
+                        outputType,
+                        method.returnType(),
+                        0,
+                        outputItemNumber,
+                        typeMap,
+                        new HashSet<>()
+                );
             }
         }
 
@@ -108,14 +117,14 @@ public class ExcelTreeBuilder {
                                int itemNumber,
                                Map<String, TypeInfo> typeMap,
                                Set<String> visited) {
-        if (typeReferenceExtractor.isStandardType(displayTypeName)) {
-            rows.add(createRow(0, depth, "", displayTypeName, javaType));
+        if (typeReferenceExtractor.isStandardType(displayTypeName) || "void".equals(displayTypeName)) {
+            rows.add(createNamelessReturnRow(itemNumber++, depth, javaType));
             return itemNumber;
         }
 
         TypeInfo typeInfo = typeMap.get(displayTypeName);
         if (typeInfo == null) {
-            rows.add(createRow(0, depth, "", displayTypeName, javaType));
+            rows.add(createRow(itemNumber++, depth, "", displayTypeName, javaType));
             return itemNumber;
         }
 
@@ -179,24 +188,39 @@ public class ExcelTreeBuilder {
                                             int depth,
                                             ParameterInfo parameter,
                                             String javaType) {
+        String physicalName = parameter.name();
         String logical = parameterLogicalName(parameter);
+        return createNamedFieldRow(no, depth, logical, physicalName, javaType);
+    }
+
+    private ExcelTreeRow createNamelessReturnRow(int no, int depth, String javaType) {
         return new ExcelTreeRow(
                 "",
                 no,
-                indent(logical, depth),
-                "",
-                indent(parameter.name(), depth),
-                "",
+                DASH,
+                DASH,
+                DASH,
+                DASH,
                 javaType,
                 ""
         );
     }
 
-    private String parameterLogicalName(ParameterInfo parameter) {
-        if (parameter.javadoc() != null && !parameter.javadoc().isBlank()) {
-            return parameter.javadoc();
-        }
-        return parameter.name();
+    private ExcelTreeRow createNamedFieldRow(int no,
+                                             int depth,
+                                             String logicalName,
+                                             String physicalName,
+                                             String javaType) {
+        return new ExcelTreeRow(
+                "",
+                no,
+                indent(logicalName, depth),
+                indent(SqlPhysicalNameConverter.convert(physicalName), depth),
+                indent(physicalName, depth),
+                DbTypeResolver.resolve(javaType),
+                javaType,
+                ""
+        );
     }
 
     private ExcelTreeRow createRow(int no,
@@ -205,16 +229,30 @@ public class ExcelTreeBuilder {
                                    String physicalName,
                                    String javaType) {
         String logical = ExcelNames.logicalName(javadoc, physicalName);
-        return new ExcelTreeRow(
-                "",
-                no,
-                indent(logical, depth),
-                "",
-                indent(physicalName, depth),
-                "",
-                javaType,
-                ""
-        );
+        return createNamedFieldRow(no, depth, logical, physicalName, javaType);
+    }
+
+    private boolean hasReturnOutput(MethodInfo method) {
+        String returnType = method.returnType();
+        return returnType != null && !returnType.isBlank();
+    }
+
+    private List<String> resolveOutputTypes(MethodInfo method) {
+        if (!method.outputTypes().isEmpty()) {
+            return method.outputTypes();
+        }
+        String returnType = method.returnType();
+        if (returnType != null && !returnType.isBlank()) {
+            return List.of(returnType.trim());
+        }
+        return List.of();
+    }
+
+    private String parameterLogicalName(ParameterInfo parameter) {
+        if (parameter.javadoc() != null && !parameter.javadoc().isBlank()) {
+            return parameter.javadoc();
+        }
+        return parameter.name();
     }
 
     private String indent(String text, int depth) {
