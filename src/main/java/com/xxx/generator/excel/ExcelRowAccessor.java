@@ -127,6 +127,7 @@ final class ExcelRowAccessor {
         return switch (kind) {
             case METHOD, METHOD_SUMMARY -> styles.sectionHeaderStyle();
             case HEADER -> styles.headerStyle();
+            case XML_LINE -> styles.xmlBodyStyle();
             default -> styles.dataStyle();
         };
     }

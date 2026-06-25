@@ -72,7 +72,7 @@ public final class DefaultTemplateGenerator {
             }
 
             createSectionRow(sheet, DATA_ROW, styles.dataStyle());
-            createSectionRow(sheet, XML_LINE_ROW, styles.dataStyle());
+            createXmlBodyRow(sheet, XML_LINE_ROW, styles.xmlBodyStyle());
             createSectionRow(sheet, INPUT_ROW, styles.dataStyle());
             createSectionRow(sheet, OUTPUT_ROW, styles.dataStyle());
 
@@ -103,6 +103,14 @@ public final class DefaultTemplateGenerator {
     }
 
     private static void createSectionRow(Sheet sheet, int rowIndex, CellStyle style) {
+        Row row = sheet.createRow(rowIndex);
+        for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
+            Cell cell = row.createCell(columnIndex);
+            cell.setCellStyle(style);
+        }
+    }
+
+    private static void createXmlBodyRow(Sheet sheet, int rowIndex, CellStyle style) {
         Row row = sheet.createRow(rowIndex);
         for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
             Cell cell = row.createCell(columnIndex);

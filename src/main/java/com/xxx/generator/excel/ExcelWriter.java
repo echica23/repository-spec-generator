@@ -4,6 +4,8 @@ import com.xxx.generator.model.MethodInfo;
 import com.xxx.generator.model.RepositoryInfo;
 import com.xxx.generator.model.TypeInfo;
 import com.xxx.generator.model.XmlResource;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -138,6 +140,7 @@ public class ExcelWriter {
                                  ExcelCellStyles styles,
                                  TemplateStyleCache styleCache) {
         Row row = prepareRow(sheet, rowIndex, TemplateRowKind.XML_LINE, styles, styleCache);
+        applyXmlBodyStyle(row, styles);
         ExcelRowAccessor.setStringValue(row, 0, "");
         ExcelRowAccessor.setStringValue(row, 1, "");
         ExcelRowAccessor.setStringValue(row, 2, line);
@@ -146,6 +149,17 @@ public class ExcelWriter {
         ExcelRowAccessor.setStringValue(row, 5, "");
         ExcelRowAccessor.setStringValue(row, 6, "");
         ExcelRowAccessor.setStringValue(row, 7, "");
+    }
+
+    private void applyXmlBodyStyle(Row row, ExcelCellStyles styles) {
+        CellStyle xmlBodyStyle = styles.xmlBodyStyle();
+        for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
+            Cell cell = row.getCell(columnIndex);
+            if (cell == null) {
+                cell = row.createCell(columnIndex);
+            }
+            cell.setCellStyle(xmlBodyStyle);
+        }
     }
 
     private int writeRepositorySection(Sheet sheet,

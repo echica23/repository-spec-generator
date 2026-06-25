@@ -20,6 +20,7 @@ final class ExcelCellStyles {
     private final CellStyle sectionHeaderStyle;
     private final CellStyle dataStyle;
     private final CellStyle noteStyle;
+    private final CellStyle xmlBodyStyle;
     private final int marginRowIndex;
     private final int blankRowIndex;
     private final int repositoryRowIndex;
@@ -38,6 +39,7 @@ final class ExcelCellStyles {
                             CellStyle sectionHeaderStyle,
                             CellStyle dataStyle,
                             CellStyle noteStyle,
+                            CellStyle xmlBodyStyle,
                             int marginRowIndex,
                             int blankRowIndex,
                             int repositoryRowIndex,
@@ -55,6 +57,7 @@ final class ExcelCellStyles {
         this.sectionHeaderStyle = sectionHeaderStyle;
         this.dataStyle = dataStyle;
         this.noteStyle = noteStyle;
+        this.xmlBodyStyle = xmlBodyStyle;
         this.marginRowIndex = marginRowIndex;
         this.blankRowIndex = blankRowIndex;
         this.repositoryRowIndex = repositoryRowIndex;
@@ -76,6 +79,7 @@ final class ExcelCellStyles {
                 createSectionHeaderStyle(workbook),
                 createDataStyle(workbook, false),
                 createDataStyle(workbook, true),
+                createXmlBodyStyle(workbook),
                 DefaultTemplateGenerator.MARGIN_ROW,
                 DefaultTemplateGenerator.BLANK_ROW,
                 DefaultTemplateGenerator.REPOSITORY_ROW,
@@ -99,6 +103,7 @@ final class ExcelCellStyles {
                 styleAt(sheet, DefaultTemplateGenerator.METHOD_ROW, 0, createSectionHeaderStyle(workbook)),
                 styleAt(sheet, DefaultTemplateGenerator.DATA_ROW, 0, createDataStyle(workbook, false)),
                 styleAt(sheet, DefaultTemplateGenerator.DATA_ROW, NOTE_COLUMN_INDEX, createDataStyle(workbook, true)),
+                styleAt(sheet, DefaultTemplateGenerator.XML_LINE_ROW, 2, createXmlBodyStyle(workbook)),
                 DefaultTemplateGenerator.MARGIN_ROW,
                 DefaultTemplateGenerator.BLANK_ROW,
                 DefaultTemplateGenerator.REPOSITORY_ROW,
@@ -132,6 +137,10 @@ final class ExcelCellStyles {
 
     CellStyle noteStyle(int columnIndex) {
         return columnIndex == NOTE_COLUMN_INDEX ? noteStyle : dataStyle;
+    }
+
+    CellStyle xmlBodyStyle() {
+        return xmlBodyStyle;
     }
 
     int templateRowIndex(TemplateRowKind kind) {
@@ -188,6 +197,21 @@ final class ExcelCellStyles {
         CellStyle style = workbook.createCellStyle();
         applyThinBorder(style);
         style.setWrapText(wrapText);
+        return style;
+    }
+
+    private static CellStyle createXmlBodyStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderTop(BorderStyle.NONE);
+        style.setBorderBottom(BorderStyle.NONE);
+        style.setBorderLeft(BorderStyle.NONE);
+        style.setBorderRight(BorderStyle.NONE);
+        style.setFillPattern(FillPatternType.NO_FILL);
+        style.setWrapText(false);
+
+        Font font = workbook.createFont();
+        font.setFontName("Consolas");
+        style.setFont(font);
         return style;
     }
 
