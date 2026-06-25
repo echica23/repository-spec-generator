@@ -175,17 +175,29 @@ public class ExcelWriter {
                                        MethodInfo method,
                                        ExcelCellStyles styles,
                                        TemplateStyleCache styleCache) {
-        writeLabelValueRow(sheet, rowIndex++, "Method", method.name(), TemplateRowKind.METHOD, styles, styleCache);
-        writeLabelValueRow(
-                sheet,
-                rowIndex++,
-                "Method概要",
-                ExcelNames.logicalName(method.javadoc(), method.name()),
-                TemplateRowKind.METHOD_SUMMARY,
-                styles,
-                styleCache
+        Row labelRow = prepareRow(sheet, rowIndex, TemplateRowKind.METHOD, styles, styleCache);
+        ExcelRowAccessor.setStringValue(labelRow, 0, "SQL_ID");
+        ExcelRowAccessor.setStringValue(labelRow, 2, "SQL概要");
+        applySqlIdRowMerges(sheet, rowIndex, styles);
+        rowIndex++;
+
+        Row valueRow = prepareRow(sheet, rowIndex, TemplateRowKind.METHOD_SUMMARY, styles, styleCache);
+        ExcelRowAccessor.setStringValue(valueRow, 0, method.name());
+        ExcelRowAccessor.setStringValue(
+                valueRow,
+                2,
+                ExcelNames.logicalName(method.javadoc(), method.name())
         );
+        applySqlIdRowMerges(sheet, rowIndex, styles);
+        rowIndex++;
+
         return rowIndex;
+    }
+
+    private void applySqlIdRowMerges(Sheet sheet, int rowIndex, ExcelCellStyles styles) {
+        if (!styles.templateMode()) {
+            ExcelRowAccessor.mergeSqlIdColumns(sheet, rowIndex);
+        }
     }
 
     private void writeLabelValueRow(Sheet sheet,
@@ -240,10 +252,10 @@ public class ExcelWriter {
     }
 
     private TemplateRowKind resolveTreeRowKind(ExcelTreeRow treeRow) {
-        if ("INPUT".equals(treeRow.section())) {
+        if (ExcelTreeBuilder.INPUT_SECTION.equals(treeRow.section())) {
             return TemplateRowKind.INPUT;
         }
-        if ("OUTPUT".equals(treeRow.section())) {
+        if (ExcelTreeBuilder.OUTPUT_SECTION.equals(treeRow.section())) {
             return TemplateRowKind.OUTPUT;
         }
         return TemplateRowKind.DATA;

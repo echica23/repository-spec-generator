@@ -5,6 +5,7 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.IOException;
@@ -57,8 +58,8 @@ public final class DefaultTemplateGenerator {
             createLabelRow(sheet, REPOSITORY_ROW, "Repository", styles.dataStyle());
             createLabelRow(sheet, REPOSITORY_SUMMARY_ROW, "Repository概要", styles.dataStyle());
             createSectionRow(sheet, BLANK_ROW, styles.dataStyle());
-            createLabelRow(sheet, METHOD_ROW, "Method", styles.sectionHeaderStyle());
-            createLabelRow(sheet, METHOD_SUMMARY_ROW, "Method概要", styles.sectionHeaderStyle());
+            createSqlIdRow(sheet, METHOD_ROW, "SQL_ID", "SQL概要", styles.sectionHeaderStyle());
+            createSqlIdRow(sheet, METHOD_SUMMARY_ROW, "selectXX", "XXを取得する", styles.sectionHeaderStyle());
 
             Row headerRow = sheet.createRow(HEADER_ROW);
             String[] headers = {
@@ -73,8 +74,8 @@ public final class DefaultTemplateGenerator {
 
             createSectionRow(sheet, DATA_ROW, styles.dataStyle());
             createXmlBodyRow(sheet, XML_LINE_ROW, styles.xmlBodyStyle());
-            createSectionRow(sheet, INPUT_ROW, styles.dataStyle());
-            createSectionRow(sheet, OUTPUT_ROW, styles.dataStyle());
+            createInputOutputSectionRow(sheet, INPUT_ROW, ExcelTreeBuilder.INPUT_SECTION, styles.dataStyle());
+            createInputOutputSectionRow(sheet, OUTPUT_ROW, ExcelTreeBuilder.OUTPUT_SECTION, styles.dataStyle());
 
             sheet.createFreezePane(0, REPOSITORY_SUMMARY_ROW + 1);
 
@@ -97,6 +98,29 @@ public final class DefaultTemplateGenerator {
             Cell cell = row.createCell(columnIndex);
             if (columnIndex == 0) {
                 cell.setCellValue(label);
+            }
+            cell.setCellStyle(style);
+        }
+    }
+
+    private static void createSqlIdRow(Sheet sheet, int rowIndex, String left, String right, CellStyle style) {
+        Row row = sheet.createRow(rowIndex);
+        for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
+            Cell cell = row.createCell(columnIndex);
+            cell.setCellStyle(style);
+        }
+        row.getCell(0).setCellValue(left);
+        row.getCell(2).setCellValue(right);
+        sheet.addMergedRegion(new CellRangeAddress(rowIndex, rowIndex, 0, 1));
+        sheet.addMergedRegion(new CellRangeAddress(rowIndex, rowIndex, 2, 7));
+    }
+
+    private static void createInputOutputSectionRow(Sheet sheet, int rowIndex, String sectionLabel, CellStyle style) {
+        Row row = sheet.createRow(rowIndex);
+        for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
+            Cell cell = row.createCell(columnIndex);
+            if (columnIndex == 0) {
+                cell.setCellValue(sectionLabel);
             }
             cell.setCellStyle(style);
         }

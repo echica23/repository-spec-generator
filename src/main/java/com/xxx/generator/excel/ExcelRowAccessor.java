@@ -132,6 +132,18 @@ final class ExcelRowAccessor {
         };
     }
 
+    static void mergeSqlIdColumns(Sheet sheet, int rowIndex) {
+        addMergeIfAbsent(sheet, rowIndex, rowIndex, 0, 1);
+        addMergeIfAbsent(sheet, rowIndex, rowIndex, 2, 7);
+    }
+
+    private static void addMergeIfAbsent(Sheet sheet, int firstRow, int lastRow, int firstCol, int lastCol) {
+        CellRangeAddress candidate = new CellRangeAddress(firstRow, lastRow, firstCol, lastCol);
+        if (!containsEquivalentMerge(sheet, candidate)) {
+            sheet.addMergedRegion(candidate);
+        }
+    }
+
     private static void copyMergedRegions(Sheet sheet, int templateRowIndex, int targetRowIndex) {
         for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
             CellRangeAddress region = sheet.getMergedRegion(i);

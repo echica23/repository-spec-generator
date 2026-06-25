@@ -16,6 +16,8 @@ import java.util.Set;
 public class ExcelTreeBuilder {
 
     private static final String INDENT = "  ";
+    static final String INPUT_SECTION = "●INPUT";
+    static final String OUTPUT_SECTION = "●OUTPUT";
 
     private final TypeReferenceExtractor typeReferenceExtractor = new TypeReferenceExtractor();
 
@@ -31,7 +33,7 @@ public class ExcelTreeBuilder {
         List<ExcelTreeRow> rows = new ArrayList<>();
 
         if (!method.parameters().isEmpty()) {
-            rows.add(new ExcelTreeRow("INPUT", 0, "", "", "", "", "", ""));
+            rows.add(new ExcelTreeRow(INPUT_SECTION, 0, "", "", "", "", "", ""));
             int inputItemNumber = 1;
             for (ParameterInfo parameter : method.parameters()) {
                 inputItemNumber = appendParameterTree(rows, parameter, 0, inputItemNumber, typeMap, new HashSet<>());
@@ -39,7 +41,7 @@ public class ExcelTreeBuilder {
         }
 
         if (!method.outputTypes().isEmpty()) {
-            rows.add(new ExcelTreeRow("OUTPUT", 0, "", "", "", "", "", ""));
+            rows.add(new ExcelTreeRow(OUTPUT_SECTION, 0, "", "", "", "", "", ""));
             int outputItemNumber = 1;
             for (String outputType : method.outputTypes()) {
                 outputItemNumber = appendTypeTree(rows, outputType, outputType, 0, outputItemNumber, typeMap, new HashSet<>());
@@ -59,13 +61,13 @@ public class ExcelTreeBuilder {
         String resolvedTypeName = resolvePrimaryTypeName(javaType);
 
         if (typeReferenceExtractor.isStandardType(resolvedTypeName)) {
-            rows.add(createParameterRow(0, depth, parameter, javaType));
+            rows.add(createParameterRow(itemNumber++, depth, parameter, javaType));
             return itemNumber;
         }
 
         TypeInfo typeInfo = typeMap.get(resolvedTypeName);
         if (typeInfo == null) {
-            rows.add(createParameterRow(0, depth, parameter, javaType));
+            rows.add(createParameterRow(itemNumber++, depth, parameter, javaType));
             return itemNumber;
         }
 
