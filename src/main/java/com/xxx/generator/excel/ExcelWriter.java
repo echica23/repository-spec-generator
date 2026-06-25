@@ -128,7 +128,7 @@ public class ExcelWriter {
         writeLabelValueRow(sheet, rowIndex++, "XML", xml.fileName(), TemplateRowKind.XML_HEADER, styles, styleCache);
 
         for (String line : xml.content().lines().toList()) {
-            writeXmlLineRow(sheet, rowIndex++, line, styles, styleCache);
+            writeXmlLineRow(sheet, rowIndex++, line, styles);
         }
 
         return rowIndex;
@@ -137,29 +137,19 @@ public class ExcelWriter {
     private void writeXmlLineRow(Sheet sheet,
                                  int rowIndex,
                                  String line,
-                                 ExcelCellStyles styles,
-                                 TemplateStyleCache styleCache) {
-        Row row = prepareRow(sheet, rowIndex, TemplateRowKind.XML_LINE, styles, styleCache);
-        applyXmlBodyStyle(row, styles);
-        ExcelRowAccessor.setStringValue(row, 0, "");
-        ExcelRowAccessor.setStringValue(row, 1, "");
-        ExcelRowAccessor.setStringValue(row, 2, line);
-        ExcelRowAccessor.setStringValue(row, 3, "");
-        ExcelRowAccessor.setStringValue(row, 4, "");
-        ExcelRowAccessor.setStringValue(row, 5, "");
-        ExcelRowAccessor.setStringValue(row, 6, "");
-        ExcelRowAccessor.setStringValue(row, 7, "");
-    }
-
-    private void applyXmlBodyStyle(Row row, ExcelCellStyles styles) {
-        CellStyle xmlBodyStyle = styles.xmlBodyStyle();
-        for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
-            Cell cell = row.getCell(columnIndex);
-            if (cell == null) {
-                cell = row.createCell(columnIndex);
-            }
-            cell.setCellStyle(xmlBodyStyle);
+                                 ExcelCellStyles styles) {
+        Row row = sheet.getRow(rowIndex);
+        if (row == null) {
+            row = sheet.createRow(rowIndex);
         }
+
+        CellStyle xmlBodyStyle = styles.xmlBodyStyle();
+        Cell cell = row.getCell(0);
+        if (cell == null) {
+            cell = row.createCell(0);
+        }
+        cell.setCellStyle(xmlBodyStyle);
+        cell.setCellValue(line != null ? line : "");
     }
 
     private int writeRepositorySection(Sheet sheet,
