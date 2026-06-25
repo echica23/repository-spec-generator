@@ -36,16 +36,15 @@ public class XmlResolver {
         }
 
         Path root = normalized.getRoot();
-        int startIndex = root == null ? 0 : 1;
         int nameCount = normalized.getNameCount();
-        if (nameCount <= startIndex) {
+        if (nameCount < 1) {
             return Optional.empty();
         }
 
         Path result = root != null ? root : Path.of("");
         boolean javaReplaced = false;
 
-        for (int i = startIndex; i < nameCount - 1; i++) {
+        for (int i = 0; i < nameCount - 1; i++) {
             String segment = normalized.getName(i).toString();
             if ("java".equals(segment)) {
                 result = result.resolve("resources");
