@@ -1,5 +1,6 @@
 package com.xxx.generator;
 
+import com.xxx.generator.excel.ExcelTemplateResolver;
 import com.xxx.generator.excel.ExcelWriter;
 import com.xxx.generator.model.MethodInfo;
 import com.xxx.generator.model.ParameterInfo;
@@ -28,6 +29,7 @@ public class Main {
         JavaSourceParser parser = new JavaSourceParser();
         TypeResolver typeResolver = new TypeResolver();
         XmlResolver xmlResolver = new XmlResolver();
+        Path templatePath = ExcelTemplateResolver.resolve(options.template());
         ExcelWriter excelWriter = new ExcelWriter();
 
         List<Path> repositoryPaths = scanner.scan(srcRoot, options.repository());
@@ -48,7 +50,7 @@ public class Main {
 
             Path outputPath = outputDir.resolve(repositoryInfo.name() + ".xlsx");
             Optional<XmlResource> xmlResource = xmlResolver.resolve(repositoryPath);
-            excelWriter.write(outputPath, repositoryInfo, typeInfos, xmlResource);
+            excelWriter.write(outputPath, repositoryInfo, typeInfos, xmlResource, templatePath);
             System.out.println("Excel output: " + outputPath.toAbsolutePath());
         }
     }

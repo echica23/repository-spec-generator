@@ -4,14 +4,14 @@ import com.xxx.generator.model.MethodInfo;
 import com.xxx.generator.model.RepositoryInfo;
 import com.xxx.generator.model.TypeInfo;
 import com.xxx.generator.model.XmlResource;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,16 +32,23 @@ public class ExcelWriter {
     public void write(Path outputPath,
                       RepositoryInfo repository,
                       List<TypeInfo> types,
-                      Optional<XmlResource> xmlResource) throws IOException {
+                      Optional<XmlResource> xmlResource,
+                      Path templatePath) throws IOException {
         if (outputPath.getParent() != null) {
             Files.createDirectories(outputPath.getParent());
         }
 
-        try (Workbook workbook = new XSSFWorkbook()) {
-            ExcelCellStyles styles = new ExcelCellStyles(workbook);
+        boolean templateMode = templatePath != null;
+        try (Workbook workbook = openWorkbook(templatePath)) {
+            ExcelCellStyles styles = templateMode
+                    ? ExcelCellStyles.fromTemplate(workbook.getSheetAt(0))
+                    : ExcelCellStyles.createProgrammatic(workbook);
+            TemplateStyleCache styleCache = new TemplateStyleCache(workbook);
             Map<String, TypeInfo> typeMap = treeBuilder.toTypeMap(types);
-            Sheet sheet = writeRepositorySheet(workbook, styles, repository, typeMap, xmlResource);
-            applySheetLayout(sheet);
+            Sheet sheet = writeRepositorySheet(workbook, styles, styleCache, repository, typeMap, xmlResource, templateMode);
+            if (!templateMode) {
+                applySheetLayout(sheet);
+            }
 
             try (OutputStream outputStream = Files.newOutputStream(outputPath)) {
                 workbook.write(outputStream);
@@ -49,157 +56,207 @@ public class ExcelWriter {
         }
     }
 
+    private Workbook openWorkbook(Path templatePath) throws IOException {
+        if (templatePath == null) {
+            return new XSSFWorkbook();
+        }
+        try (InputStream inputStream = Files.newInputStream(templatePath)) {
+            return WorkbookFactory.create(inputStream);
+        }
+    }
+
     private Sheet writeRepositorySheet(Workbook workbook,
                                        ExcelCellStyles styles,
+                                       TemplateStyleCache styleCache,
                                        RepositoryInfo repository,
                                        Map<String, TypeInfo> typeMap,
-                                       Optional<XmlResource> xmlResource) {
-        Sheet sheet = workbook.createSheet("Repository");
+                                       Optional<XmlResource> xmlResource,
+                                       boolean templateMode) {
+        Sheet sheet = templateMode ? workbook.getSheetAt(0) : workbook.createSheet(DefaultTemplateGenerator.SHEET_NAME);
         int rowIndex = 0;
         int repositorySummaryRowIndex = -1;
 
         for (int i = 0; i < TOP_MARGIN_ROWS; i++) {
-            fillEmptyCells(sheet.createRow(rowIndex++), styles);
+            prepareRow(sheet, rowIndex++, TemplateRowKind.MARGIN, styles, styleCache);
         }
 
-        rowIndex = writeRepositorySection(sheet, rowIndex, repository, styles);
+        rowIndex = writeRepositorySection(sheet, rowIndex, repository, styles, styleCache);
         repositorySummaryRowIndex = rowIndex - 1;
-        fillEmptyCells(sheet.createRow(rowIndex++), styles);
+        prepareRow(sheet, rowIndex++, TemplateRowKind.BLANK, styles, styleCache);
 
         List<MethodInfo> methods = repository.methods();
         for (int methodIndex = 0; methodIndex < methods.size(); methodIndex++) {
             MethodInfo method = methods.get(methodIndex);
 
-            rowIndex = writeMethodInfoSection(sheet, rowIndex, method, styles);
-            createHeader(sheet.createRow(rowIndex++), styles);
+            rowIndex = writeMethodInfoSection(sheet, rowIndex, method, styles, styleCache);
+            writeHeaderRow(sheet, rowIndex++, styles, styleCache);
 
             for (ExcelTreeRow treeRow : treeBuilder.buildMethodContent(method, typeMap)) {
-                writeTreeRow(sheet.createRow(rowIndex++), treeRow, styles);
+                writeTreeRow(sheet, rowIndex++, treeRow, styles, styleCache);
             }
 
             if (methodIndex < methods.size() - 1) {
-                fillEmptyCells(sheet.createRow(rowIndex++), styles);
+                prepareRow(sheet, rowIndex++, TemplateRowKind.BLANK, styles, styleCache);
             }
         }
 
-        rowIndex = writeXmlSection(sheet, rowIndex, xmlResource, styles);
+        writeXmlSection(sheet, rowIndex, xmlResource, styles, styleCache);
 
-        sheet.createFreezePane(0, repositorySummaryRowIndex >= 0 ? repositorySummaryRowIndex + 1 : TOP_MARGIN_ROWS + 1);
+        if (!templateMode) {
+            sheet.createFreezePane(0, repositorySummaryRowIndex >= 0
+                    ? repositorySummaryRowIndex + 1
+                    : TOP_MARGIN_ROWS + 1);
+        }
         return sheet;
     }
 
-    private int writeXmlSection(Sheet sheet, int rowIndex, Optional<XmlResource> xmlResource, ExcelCellStyles styles) {
-        fillEmptyCells(sheet.createRow(rowIndex++), styles);
+    private int writeXmlSection(Sheet sheet,
+                                int rowIndex,
+                                Optional<XmlResource> xmlResource,
+                                ExcelCellStyles styles,
+                                TemplateStyleCache styleCache) {
+        prepareRow(sheet, rowIndex++, TemplateRowKind.BLANK, styles, styleCache);
 
         if (xmlResource.isEmpty() || xmlResource.get().content().isBlank()) {
-            writeLabelValueRow(sheet.createRow(rowIndex++), "XML", XML_NOT_FOUND_MESSAGE, styles, false);
+            writeLabelValueRow(sheet, rowIndex++, "XML", XML_NOT_FOUND_MESSAGE, TemplateRowKind.XML_HEADER, styles, styleCache);
             return rowIndex;
         }
 
         XmlResource xml = xmlResource.get();
-        writeLabelValueRow(sheet.createRow(rowIndex++), "XML", xml.fileName(), styles, false);
+        writeLabelValueRow(sheet, rowIndex++, "XML", xml.fileName(), TemplateRowKind.XML_HEADER, styles, styleCache);
 
         for (String line : xml.content().lines().toList()) {
-            writeXmlLineRow(sheet.createRow(rowIndex++), line, styles);
+            writeXmlLineRow(sheet, rowIndex++, line, styles, styleCache);
         }
 
         return rowIndex;
     }
 
-    private void writeXmlLineRow(Row row, String line, ExcelCellStyles styles) {
-        writeCell(row, 0, "", styles);
-        writeCell(row, 1, "", styles);
-        writeCell(row, 2, line, styles);
-        writeCell(row, 3, "", styles);
-        writeCell(row, 4, "", styles);
-        writeCell(row, 5, "", styles);
-        writeCell(row, 6, "", styles);
-        writeCell(row, 7, "", styles);
+    private void writeXmlLineRow(Sheet sheet,
+                                 int rowIndex,
+                                 String line,
+                                 ExcelCellStyles styles,
+                                 TemplateStyleCache styleCache) {
+        Row row = prepareRow(sheet, rowIndex, TemplateRowKind.XML_LINE, styles, styleCache);
+        ExcelRowAccessor.setStringValue(row, 0, "");
+        ExcelRowAccessor.setStringValue(row, 1, "");
+        ExcelRowAccessor.setStringValue(row, 2, line);
+        ExcelRowAccessor.setStringValue(row, 3, "");
+        ExcelRowAccessor.setStringValue(row, 4, "");
+        ExcelRowAccessor.setStringValue(row, 5, "");
+        ExcelRowAccessor.setStringValue(row, 6, "");
+        ExcelRowAccessor.setStringValue(row, 7, "");
     }
 
-    private int writeRepositorySection(Sheet sheet, int rowIndex, RepositoryInfo repository, ExcelCellStyles styles) {
-        writeLabelValueRow(sheet.createRow(rowIndex++), "Repository", repository.name(), styles, false);
+    private int writeRepositorySection(Sheet sheet,
+                                       int rowIndex,
+                                       RepositoryInfo repository,
+                                       ExcelCellStyles styles,
+                                       TemplateStyleCache styleCache) {
+        writeLabelValueRow(sheet, rowIndex++, "Repository", repository.name(), TemplateRowKind.REPOSITORY, styles, styleCache);
         writeLabelValueRow(
-                sheet.createRow(rowIndex++),
+                sheet,
+                rowIndex++,
                 "Repository概要",
                 ExcelNames.logicalName(repository.javadoc(), repository.name()),
+                TemplateRowKind.REPOSITORY_SUMMARY,
                 styles,
-                false
+                styleCache
         );
         return rowIndex;
     }
 
-    private int writeMethodInfoSection(Sheet sheet, int rowIndex, MethodInfo method, ExcelCellStyles styles) {
-        writeLabelValueRow(sheet.createRow(rowIndex++), "Method", method.name(), styles, true);
+    private int writeMethodInfoSection(Sheet sheet,
+                                       int rowIndex,
+                                       MethodInfo method,
+                                       ExcelCellStyles styles,
+                                       TemplateStyleCache styleCache) {
+        writeLabelValueRow(sheet, rowIndex++, "Method", method.name(), TemplateRowKind.METHOD, styles, styleCache);
         writeLabelValueRow(
-                sheet.createRow(rowIndex++),
+                sheet,
+                rowIndex++,
                 "Method概要",
                 ExcelNames.logicalName(method.javadoc(), method.name()),
+                TemplateRowKind.METHOD_SUMMARY,
                 styles,
-                true
+                styleCache
         );
         return rowIndex;
     }
 
-    private void writeLabelValueRow(Row row, String label, String value, ExcelCellStyles styles, boolean emphasize) {
-        CellStyle cellStyle = emphasize ? styles.sectionHeaderStyle() : styles.dataStyle();
-        for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
-            Cell cell = row.createCell(columnIndex);
-            if (columnIndex == 0) {
-                cell.setCellValue(label);
-            } else if (columnIndex == 2) {
-                cell.setCellValue(value != null ? value : "");
-            } else {
-                cell.setCellValue("");
+    private void writeLabelValueRow(Sheet sheet,
+                                    int rowIndex,
+                                    String label,
+                                    String value,
+                                    TemplateRowKind kind,
+                                    ExcelCellStyles styles,
+                                    TemplateStyleCache styleCache) {
+        Row row = prepareRow(sheet, rowIndex, kind, styles, styleCache);
+        ExcelRowAccessor.setStringValue(row, 0, label);
+        ExcelRowAccessor.setStringValue(row, 1, "");
+        ExcelRowAccessor.setStringValue(row, 2, value != null ? value : "");
+        for (int columnIndex = 3; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
+            if (row.getCell(columnIndex) == null) {
+                ExcelRowAccessor.setStringValue(row, columnIndex, "");
             }
-            cell.setCellStyle(cellStyle);
         }
     }
 
-    private void createHeader(Row row, ExcelCellStyles styles) {
+    private void writeHeaderRow(Sheet sheet, int rowIndex, ExcelCellStyles styles, TemplateStyleCache styleCache) {
+        Row row = prepareRow(sheet, rowIndex, TemplateRowKind.HEADER, styles, styleCache);
         String[] headers = {
                 "区分", "項番", "論理項目名", "物理項目名(SQL)",
                 "物理項目名", "DB型", "Java型", "備考"
         };
         for (int columnIndex = 0; columnIndex < headers.length; columnIndex++) {
-            Cell cell = row.createCell(columnIndex);
-            cell.setCellValue(headers[columnIndex]);
-            cell.setCellStyle(styles.headerStyle());
+            ExcelRowAccessor.setStringValue(row, columnIndex, headers[columnIndex]);
         }
     }
 
-    private void writeTreeRow(Row row, ExcelTreeRow treeRow, ExcelCellStyles styles) {
-        writeCell(row, 0, treeRow.section(), styles);
+    private void writeTreeRow(Sheet sheet,
+                              int rowIndex,
+                              ExcelTreeRow treeRow,
+                              ExcelCellStyles styles,
+                              TemplateStyleCache styleCache) {
+        TemplateRowKind kind = resolveTreeRowKind(treeRow);
+        Row row = prepareRow(sheet, rowIndex, kind, styles, styleCache);
+        ExcelRowAccessor.setStringValue(row, 0, treeRow.section());
         if (treeRow.no() > 0) {
-            writeNumericCell(row, 1, treeRow.no(), styles);
+            ExcelRowAccessor.setNumericValue(row, 1, treeRow.no());
         } else {
-            writeCell(row, 1, "", styles);
+            ExcelRowAccessor.setStringValue(row, 1, "");
         }
-        writeCell(row, 2, treeRow.logicalName(), styles);
-        writeCell(row, 3, treeRow.sqlPhysicalName(), styles);
-        writeCell(row, 4, treeRow.physicalName(), styles);
-        writeCell(row, 5, treeRow.dbType(), styles);
-        writeCell(row, 6, treeRow.javaType(), styles);
-        writeCell(row, 7, treeRow.note(), styles);
-        fillEmptyCells(row, styles);
+        ExcelRowAccessor.setStringValue(row, 2, treeRow.logicalName());
+        ExcelRowAccessor.setStringValue(row, 3, treeRow.sqlPhysicalName());
+        ExcelRowAccessor.setStringValue(row, 4, treeRow.physicalName());
+        ExcelRowAccessor.setStringValue(row, 5, treeRow.dbType());
+        ExcelRowAccessor.setStringValue(row, 6, treeRow.javaType());
+        ExcelRowAccessor.setStringValue(row, 7, treeRow.note());
+        fillMissingCells(row);
     }
 
-    private void writeCell(Row row, int columnIndex, String value, ExcelCellStyles styles) {
-        Cell cell = row.createCell(columnIndex);
-        cell.setCellValue(value != null ? value : "");
-        cell.setCellStyle(styles.noteStyle(columnIndex));
+    private TemplateRowKind resolveTreeRowKind(ExcelTreeRow treeRow) {
+        if ("INPUT".equals(treeRow.section())) {
+            return TemplateRowKind.INPUT;
+        }
+        if ("OUTPUT".equals(treeRow.section())) {
+            return TemplateRowKind.OUTPUT;
+        }
+        return TemplateRowKind.DATA;
     }
 
-    private void writeNumericCell(Row row, int columnIndex, int value, ExcelCellStyles styles) {
-        Cell cell = row.createCell(columnIndex);
-        cell.setCellValue(value);
-        cell.setCellStyle(styles.noteStyle(columnIndex));
+    private Row prepareRow(Sheet sheet,
+                           int rowIndex,
+                           TemplateRowKind kind,
+                           ExcelCellStyles styles,
+                           TemplateStyleCache styleCache) {
+        return ExcelRowAccessor.prepareRow(sheet, rowIndex, kind, styles, styleCache);
     }
 
-    private void fillEmptyCells(Row row, ExcelCellStyles styles) {
+    private void fillMissingCells(Row row) {
         for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
             if (row.getCell(columnIndex) == null) {
-                writeCell(row, columnIndex, "", styles);
+                ExcelRowAccessor.setStringValue(row, columnIndex, "");
             }
         }
     }
