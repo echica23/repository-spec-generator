@@ -215,7 +215,7 @@ public class ExcelTreeBuilder {
                 "",
                 no,
                 indent(logicalName, depth),
-                indent(SqlPhysicalNameConverter.convert(physicalName), depth),
+                indent(SqlPhysicalNameConverter.resolve(physicalName, javaType, typeReferenceExtractor), depth),
                 indent(physicalName, depth),
                 DbTypeResolver.resolve(javaType),
                 javaType,
