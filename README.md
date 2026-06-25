@@ -53,8 +53,23 @@ java -jar target/repository-spec-generator-1.0.0-SNAPSHOT.jar \
 |---|---|---|
 | `--srcRoot` | はい | ソースルート（例: `src/main` または `sample-src`） |
 | `--out` | いいえ | 出力ディレクトリ（既定: `output`） |
-| `--repository` | いいえ | 対象 Repository 名（例: `Book`） |
+| `--repository` | いいえ | 対象 Repository（単純名または完全修飾名。後述） |
 | `--template` | いいえ | Excel テンプレートパス（未指定時は `template/default.xlsx`） |
+
+### `--repository` の指定方法
+
+Repository 名のみ、または完全修飾名（FQCN）を指定できます。
+
+```cmd
+--repository UserRepository
+--repository com.xxx.user.repository.UserRepository
+```
+
+| 指定方法 | 動作 |
+|---|---|
+| 未指定 | 検出したすべての Repository を処理 |
+| 単純名（例: `UserRepository` または `User`） | 一致が1件ならその Repository を処理。複数件なら完全修飾名一覧を表示してエラー終了 |
+| 完全修飾名（例: `com.xxx.user.repository.UserRepository`） | 一致する Repository を1件だけ処理 |
 
 ### 開発時（Maven exec）
 
@@ -68,6 +83,6 @@ mvnw.cmd exec:java "-Dexec.args=--srcRoot sample-src --out output"
 java -jar target/repository-spec-generator-1.0.0-SNAPSHOT.jar \
   --srcRoot <ソースルート> \
   --out <出力ディレクトリ> \
-  --repository <リポジトリ名> \
+  --repository <単純名または完全修飾名> \
   --template <テンプレートExcelパス>
 ```
