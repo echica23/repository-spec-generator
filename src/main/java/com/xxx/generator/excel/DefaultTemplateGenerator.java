@@ -136,7 +136,9 @@ public final class DefaultTemplateGenerator {
 
     private static void createXmlBodyRow(Sheet sheet, int rowIndex, CellStyle style) {
         Row row = sheet.createRow(rowIndex);
-        Cell cell = row.createCell(0);
-        cell.setCellStyle(style);
+        for (int columnIndex = 0; columnIndex < ExcelCellStyles.COLUMN_COUNT; columnIndex++) {
+            Cell cell = row.createCell(columnIndex);
+            cell.setCellStyle(style);
+        }
     }
 }

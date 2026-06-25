@@ -46,8 +46,10 @@ public class ExcelWriter {
                     ? ExcelCellStyles.fromTemplate(workbook.getSheetAt(0))
                     : ExcelCellStyles.createProgrammatic(workbook);
             TemplateStyleCache styleCache = new TemplateStyleCache(workbook);
+            IndentStyleCache indentStyleCache = new IndentStyleCache(workbook);
             Map<String, TypeInfo> typeMap = treeBuilder.toTypeMap(types);
-            Sheet sheet = writeRepositorySheet(workbook, styles, styleCache, repository, typeMap, xmlResource, templateMode);
+            Sheet sheet = writeRepositorySheet(
+                    workbook, styles, styleCache, indentStyleCache, repository, typeMap, xmlResource, templateMode);
             if (!templateMode) {
                 applySheetLayout(sheet);
             }
@@ -70,6 +72,7 @@ public class ExcelWriter {
     private Sheet writeRepositorySheet(Workbook workbook,
                                        ExcelCellStyles styles,
                                        TemplateStyleCache styleCache,
+                                       IndentStyleCache indentStyleCache,
                                        RepositoryInfo repository,
                                        Map<String, TypeInfo> typeMap,
                                        Optional<XmlResource> xmlResource,
@@ -94,7 +97,7 @@ public class ExcelWriter {
             writeHeaderRow(sheet, rowIndex++, styles, styleCache);
 
             for (ExcelTreeRow treeRow : treeBuilder.buildMethodContent(method, typeMap)) {
-                writeTreeRow(sheet, rowIndex++, treeRow, styles, styleCache);
+                writeTreeRow(sheet, rowIndex++, treeRow, styles, styleCache, indentStyleCache);
             }
 
             if (methodIndex < methods.size() - 1) {
@@ -128,7 +131,7 @@ public class ExcelWriter {
         writeLabelValueRow(sheet, rowIndex++, "XML", xml.fileName(), TemplateRowKind.XML_HEADER, styles, styleCache);
 
         for (String line : xml.content().lines().toList()) {
-            writeXmlLineRow(sheet, rowIndex++, line, styles);
+            writeXmlLineRow(sheet, rowIndex++, line, styles, styleCache);
         }
 
         return rowIndex;
@@ -137,19 +140,10 @@ public class ExcelWriter {
     private void writeXmlLineRow(Sheet sheet,
                                  int rowIndex,
                                  String line,
-                                 ExcelCellStyles styles) {
-        Row row = sheet.getRow(rowIndex);
-        if (row == null) {
-            row = sheet.createRow(rowIndex);
-        }
-
-        CellStyle xmlBodyStyle = styles.xmlBodyStyle();
-        Cell cell = row.getCell(0);
-        if (cell == null) {
-            cell = row.createCell(0);
-        }
-        cell.setCellStyle(xmlBodyStyle);
-        cell.setCellValue(line != null ? line : "");
+                                 ExcelCellStyles styles,
+                                 TemplateStyleCache styleCache) {
+        Row row = prepareRow(sheet, rowIndex, TemplateRowKind.XML_LINE, styles, styleCache);
+        ExcelRowAccessor.setStringValue(row, 0, line != null ? line : "");
     }
 
     private int writeRepositorySection(Sheet sheet,
@@ -233,7 +227,8 @@ public class ExcelWriter {
                               int rowIndex,
                               ExcelTreeRow treeRow,
                               ExcelCellStyles styles,
-                              TemplateStyleCache styleCache) {
+                              TemplateStyleCache styleCache,
+                              IndentStyleCache indentStyleCache) {
         TemplateRowKind kind = resolveTreeRowKind(treeRow);
         Row row = prepareRow(sheet, rowIndex, kind, styles, styleCache);
         ExcelRowAccessor.setStringValue(row, 0, treeRow.section());
@@ -249,6 +244,24 @@ public class ExcelWriter {
         ExcelRowAccessor.setStringValue(row, 6, treeRow.javaType());
         ExcelRowAccessor.setStringValue(row, 7, treeRow.note());
         fillMissingCells(row);
+        applyTreeRowIndent(row, treeRow.depth(), indentStyleCache);
+    }
+
+    private void applyTreeRowIndent(Row row, int depth, IndentStyleCache indentStyleCache) {
+        if (depth <= 0) {
+            return;
+        }
+
+        short indent = (short) depth;
+        Cell logicalCell = row.getCell(ExcelCellStyles.LOGICAL_NAME_COLUMN_INDEX);
+        if (logicalCell != null) {
+            logicalCell.setCellStyle(indentStyleCache.withIndent(logicalCell.getCellStyle(), indent));
+        }
+
+        Cell physicalCell = row.getCell(ExcelCellStyles.PHYSICAL_NAME_COLUMN_INDEX);
+        if (physicalCell != null) {
+            physicalCell.setCellStyle(indentStyleCache.withIndent(physicalCell.getCellStyle(), indent));
+        }
     }
 
     private TemplateRowKind resolveTreeRowKind(ExcelTreeRow treeRow) {

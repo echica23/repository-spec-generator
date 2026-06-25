@@ -14,6 +14,8 @@ final class ExcelCellStyles {
 
     static final int COLUMN_COUNT = 8;
     static final int NOTE_COLUMN_INDEX = 7;
+    static final int LOGICAL_NAME_COLUMN_INDEX = 2;
+    static final int PHYSICAL_NAME_COLUMN_INDEX = 4;
 
     private final boolean templateMode;
     private final CellStyle headerStyle;
@@ -206,7 +208,8 @@ final class ExcelCellStyles {
         style.setBorderBottom(BorderStyle.NONE);
         style.setBorderLeft(BorderStyle.NONE);
         style.setBorderRight(BorderStyle.NONE);
-        style.setFillPattern(FillPatternType.NO_FILL);
+        style.setFillForegroundColor(IndexedColors.WHITE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         style.setWrapText(false);
 
         Font font = workbook.createFont();

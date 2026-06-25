@@ -15,7 +15,6 @@ import java.util.Set;
 
 public class ExcelTreeBuilder {
 
-    private static final String INDENT = "  ";
     private static final String DASH = "-";
     static final String INPUT_SECTION = "●INPUT";
     static final String OUTPUT_SECTION = "●OUTPUT";
@@ -34,7 +33,7 @@ public class ExcelTreeBuilder {
         List<ExcelTreeRow> rows = new ArrayList<>();
 
         if (!method.parameters().isEmpty()) {
-            rows.add(new ExcelTreeRow(INPUT_SECTION, 0, "", "", "", "", "", ""));
+            rows.add(new ExcelTreeRow(INPUT_SECTION, 0, 0, "", "", "", "", "", ""));
             int inputItemNumber = 1;
             for (ParameterInfo parameter : method.parameters()) {
                 inputItemNumber = appendParameterTree(rows, parameter, 0, inputItemNumber, typeMap, new HashSet<>());
@@ -42,7 +41,7 @@ public class ExcelTreeBuilder {
         }
 
         if (hasReturnOutput(method)) {
-            rows.add(new ExcelTreeRow(OUTPUT_SECTION, 0, "", "", "", "", "", ""));
+            rows.add(new ExcelTreeRow(OUTPUT_SECTION, 0, 0, "", "", "", "", "", ""));
             int outputItemNumber = 1;
             for (String outputType : resolveOutputTypes(method)) {
                 outputItemNumber = appendTypeTree(
@@ -197,6 +196,7 @@ public class ExcelTreeBuilder {
         return new ExcelTreeRow(
                 "",
                 no,
+                depth,
                 DASH,
                 DASH,
                 DASH,
@@ -214,9 +214,10 @@ public class ExcelTreeBuilder {
         return new ExcelTreeRow(
                 "",
                 no,
-                indent(logicalName, depth),
-                indent(SqlPhysicalNameConverter.resolve(physicalName, javaType, typeReferenceExtractor), depth),
-                indent(physicalName, depth),
+                depth,
+                logicalName,
+                SqlPhysicalNameConverter.resolve(physicalName, javaType, typeReferenceExtractor),
+                physicalName,
                 DbTypeResolver.resolve(javaType),
                 javaType,
                 ""
@@ -253,12 +254,5 @@ public class ExcelTreeBuilder {
             return parameter.javadoc();
         }
         return parameter.name();
-    }
-
-    private String indent(String text, int depth) {
-        if (text == null || text.isBlank()) {
-            return "";
-        }
-        return INDENT.repeat(Math.max(0, depth)) + text;
     }
 }

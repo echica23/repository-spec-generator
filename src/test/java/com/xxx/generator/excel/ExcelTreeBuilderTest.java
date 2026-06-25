@@ -39,10 +39,11 @@ class ExcelTreeBuilderTest {
         assertEquals("-", outputDtoRow.sqlPhysicalName());
 
         ExcelTreeRow nestedFieldRow = rows.stream()
-                .filter(row -> "  id".equals(row.physicalName()))
+                .filter(row -> "id".equals(row.physicalName()) && row.depth() == 1)
                 .findFirst()
                 .orElseThrow();
-        assertEquals("  ID", nestedFieldRow.sqlPhysicalName());
+        assertEquals("ID", nestedFieldRow.sqlPhysicalName());
+        assertEquals(1, nestedFieldRow.depth());
     }
 
     @Test
