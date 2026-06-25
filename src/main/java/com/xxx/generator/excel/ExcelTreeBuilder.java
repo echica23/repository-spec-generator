@@ -31,7 +31,7 @@ public class ExcelTreeBuilder {
         List<ExcelTreeRow> rows = new ArrayList<>();
 
         if (!method.parameters().isEmpty()) {
-            rows.add(new ExcelTreeRow("INPUT", 0, "INPUT", "", "", "", "", ""));
+            rows.add(new ExcelTreeRow("INPUT", 0, "", "", "", "", "", ""));
             int inputItemNumber = 1;
             for (ParameterInfo parameter : method.parameters()) {
                 inputItemNumber = appendParameterTree(rows, parameter, 0, inputItemNumber, typeMap, new HashSet<>());
@@ -39,7 +39,7 @@ public class ExcelTreeBuilder {
         }
 
         if (!method.outputTypes().isEmpty()) {
-            rows.add(new ExcelTreeRow("OUTPUT", 0, "OUTPUT", "", "", "", "", ""));
+            rows.add(new ExcelTreeRow("OUTPUT", 0, "", "", "", "", "", ""));
             int outputItemNumber = 1;
             for (String outputType : method.outputTypes()) {
                 outputItemNumber = appendTypeTree(rows, outputType, outputType, 0, outputItemNumber, typeMap, new HashSet<>());
@@ -55,28 +55,27 @@ public class ExcelTreeBuilder {
                                     int itemNumber,
                                     Map<String, TypeInfo> typeMap,
                                     Set<String> visited) {
-        String paramName = parameter.name();
         String javaType = parameter.type();
         String resolvedTypeName = resolvePrimaryTypeName(javaType);
 
         if (typeReferenceExtractor.isStandardType(resolvedTypeName)) {
-            rows.add(createRow(itemNumber++, depth, "", paramName, javaType));
+            rows.add(createParameterRow(0, depth, parameter, javaType));
             return itemNumber;
         }
 
         TypeInfo typeInfo = typeMap.get(resolvedTypeName);
         if (typeInfo == null) {
-            rows.add(createRow(itemNumber++, depth, "", paramName, javaType));
+            rows.add(createParameterRow(0, depth, parameter, javaType));
             return itemNumber;
         }
 
         if (visited.contains(typeInfo.name())) {
-            rows.add(createRow(itemNumber++, depth, typeInfo.javadoc(), paramName, javaType));
+            rows.add(createParameterRow(itemNumber++, depth, parameter, javaType));
             return itemNumber;
         }
         visited.add(typeInfo.name());
 
-        rows.add(createRow(itemNumber++, depth, typeInfo.javadoc(), paramName, javaType));
+        rows.add(createParameterRow(itemNumber++, depth, parameter, javaType));
         for (FieldInfo field : typeInfo.fields()) {
             rows.add(createRow(itemNumber++, depth + 1, field.javadoc(), field.name(), field.type()));
             if (!typeReferenceExtractor.isStandardType(field.type())) {
@@ -108,13 +107,13 @@ public class ExcelTreeBuilder {
                                Map<String, TypeInfo> typeMap,
                                Set<String> visited) {
         if (typeReferenceExtractor.isStandardType(displayTypeName)) {
-            rows.add(createRow(itemNumber++, depth, "", displayTypeName, javaType));
+            rows.add(createRow(0, depth, "", displayTypeName, javaType));
             return itemNumber;
         }
 
         TypeInfo typeInfo = typeMap.get(displayTypeName);
         if (typeInfo == null) {
-            rows.add(createRow(itemNumber++, depth, "", displayTypeName, javaType));
+            rows.add(createRow(0, depth, "", displayTypeName, javaType));
             return itemNumber;
         }
 
@@ -172,6 +171,30 @@ public class ExcelTreeBuilder {
         }
         visited.remove(typeInfo.name());
         return itemNumber;
+    }
+
+    private ExcelTreeRow createParameterRow(int no,
+                                            int depth,
+                                            ParameterInfo parameter,
+                                            String javaType) {
+        String logical = parameterLogicalName(parameter);
+        return new ExcelTreeRow(
+                "",
+                no,
+                indent(logical, depth),
+                "",
+                indent(parameter.name(), depth),
+                "",
+                javaType,
+                ""
+        );
+    }
+
+    private String parameterLogicalName(ParameterInfo parameter) {
+        if (parameter.javadoc() != null && !parameter.javadoc().isBlank()) {
+            return parameter.javadoc();
+        }
+        return parameter.name();
     }
 
     private ExcelTreeRow createRow(int no,

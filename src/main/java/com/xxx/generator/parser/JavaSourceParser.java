@@ -8,6 +8,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.javadoc.JavadocBlockTag;
 import com.xxx.generator.model.MethodInfo;
 import com.xxx.generator.model.ParameterInfo;
 import com.xxx.generator.model.RepositoryInfo;
@@ -81,8 +82,9 @@ public class JavaSourceParser {
         method.getParameters().forEach(parameter ->
                 inputTypes.addAll(extractTypeNames(parameter.getType())));
 
+        Map<String, String> paramJavadocs = extractParamJavadocs(method);
         List<ParameterInfo> parameters = method.getParameters().stream()
-                .map(this::toParameterInfo)
+                .map(parameter -> toParameterInfo(parameter, paramJavadocs))
                 .toList();
 
         return new MethodInfo(
@@ -114,11 +116,28 @@ public class JavaSourceParser {
         return List.of(typeName);
     }
 
-    private ParameterInfo toParameterInfo(Parameter parameter) {
+    private ParameterInfo toParameterInfo(Parameter parameter, Map<String, String> paramJavadocs) {
+        String name = parameter.getNameAsString();
         return new ParameterInfo(
-                parameter.getNameAsString(),
-                parameter.getType().asString()
+                name,
+                parameter.getType().asString(),
+                paramJavadocs.getOrDefault(name, "")
         );
+    }
+
+    private Map<String, String> extractParamJavadocs(MethodDeclaration method) {
+        return method.getJavadoc()
+                .map(javadoc -> {
+                    Map<String, String> paramJavadocs = new LinkedHashMap<>();
+                    for (JavadocBlockTag blockTag : javadoc.getBlockTags()) {
+                        if (blockTag.getType() == JavadocBlockTag.Type.PARAM) {
+                            blockTag.getName().ifPresent(name ->
+                                    paramJavadocs.put(name, blockTag.getContent().toText()));
+                        }
+                    }
+                    return paramJavadocs;
+                })
+                .orElse(Map.of());
     }
 
     private String extractJavadocDescription(ClassOrInterfaceDeclaration node) {

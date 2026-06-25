@@ -3,6 +3,7 @@ package com.xxx.generator.excel;
 import com.xxx.generator.model.MethodInfo;
 import com.xxx.generator.model.RepositoryInfo;
 import com.xxx.generator.model.TypeInfo;
+import com.xxx.generator.model.XmlResource;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
@@ -16,15 +17,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class ExcelWriter {
 
+    private static final int TOP_MARGIN_ROWS = 7;
     private static final int COLUMN_WIDTH_PADDING = 1024;
     private static final int MAX_COLUMN_WIDTH = 255 * 256;
 
+    private static final String XML_NOT_FOUND_MESSAGE = "XMLファイルが存在しません";
+
     private final ExcelTreeBuilder treeBuilder = new ExcelTreeBuilder();
 
-    public void write(Path outputPath, RepositoryInfo repository, List<TypeInfo> types) throws IOException {
+    public void write(Path outputPath,
+                      RepositoryInfo repository,
+                      List<TypeInfo> types,
+                      Optional<XmlResource> xmlResource) throws IOException {
         if (outputPath.getParent() != null) {
             Files.createDirectories(outputPath.getParent());
         }
@@ -32,7 +40,7 @@ public class ExcelWriter {
         try (Workbook workbook = new XSSFWorkbook()) {
             ExcelCellStyles styles = new ExcelCellStyles(workbook);
             Map<String, TypeInfo> typeMap = treeBuilder.toTypeMap(types);
-            Sheet sheet = writeRepositorySheet(workbook, styles, repository, typeMap);
+            Sheet sheet = writeRepositorySheet(workbook, styles, repository, typeMap, xmlResource);
             applySheetLayout(sheet);
 
             try (OutputStream outputStream = Files.newOutputStream(outputPath)) {
@@ -44,12 +52,18 @@ public class ExcelWriter {
     private Sheet writeRepositorySheet(Workbook workbook,
                                        ExcelCellStyles styles,
                                        RepositoryInfo repository,
-                                       Map<String, TypeInfo> typeMap) {
+                                       Map<String, TypeInfo> typeMap,
+                                       Optional<XmlResource> xmlResource) {
         Sheet sheet = workbook.createSheet("Repository");
         int rowIndex = 0;
-        int firstHeaderRowIndex = -1;
+        int repositorySummaryRowIndex = -1;
+
+        for (int i = 0; i < TOP_MARGIN_ROWS; i++) {
+            fillEmptyCells(sheet.createRow(rowIndex++), styles);
+        }
 
         rowIndex = writeRepositorySection(sheet, rowIndex, repository, styles);
+        repositorySummaryRowIndex = rowIndex - 1;
         fillEmptyCells(sheet.createRow(rowIndex++), styles);
 
         List<MethodInfo> methods = repository.methods();
@@ -57,10 +71,6 @@ public class ExcelWriter {
             MethodInfo method = methods.get(methodIndex);
 
             rowIndex = writeMethodInfoSection(sheet, rowIndex, method, styles);
-
-            if (firstHeaderRowIndex < 0) {
-                firstHeaderRowIndex = rowIndex;
-            }
             createHeader(sheet.createRow(rowIndex++), styles);
 
             for (ExcelTreeRow treeRow : treeBuilder.buildMethodContent(method, typeMap)) {
@@ -72,8 +82,39 @@ public class ExcelWriter {
             }
         }
 
-        sheet.createFreezePane(0, firstHeaderRowIndex >= 0 ? firstHeaderRowIndex + 1 : 1);
+        rowIndex = writeXmlSection(sheet, rowIndex, xmlResource, styles);
+
+        sheet.createFreezePane(0, repositorySummaryRowIndex >= 0 ? repositorySummaryRowIndex + 1 : TOP_MARGIN_ROWS + 1);
         return sheet;
+    }
+
+    private int writeXmlSection(Sheet sheet, int rowIndex, Optional<XmlResource> xmlResource, ExcelCellStyles styles) {
+        fillEmptyCells(sheet.createRow(rowIndex++), styles);
+
+        if (xmlResource.isEmpty() || xmlResource.get().content().isBlank()) {
+            writeLabelValueRow(sheet.createRow(rowIndex++), "XML", XML_NOT_FOUND_MESSAGE, styles, false);
+            return rowIndex;
+        }
+
+        XmlResource xml = xmlResource.get();
+        writeLabelValueRow(sheet.createRow(rowIndex++), "XML", xml.fileName(), styles, false);
+
+        for (String line : xml.content().lines().toList()) {
+            writeXmlLineRow(sheet.createRow(rowIndex++), line, styles);
+        }
+
+        return rowIndex;
+    }
+
+    private void writeXmlLineRow(Row row, String line, ExcelCellStyles styles) {
+        writeCell(row, 0, "", styles);
+        writeCell(row, 1, "", styles);
+        writeCell(row, 2, line, styles);
+        writeCell(row, 3, "", styles);
+        writeCell(row, 4, "", styles);
+        writeCell(row, 5, "", styles);
+        writeCell(row, 6, "", styles);
+        writeCell(row, 7, "", styles);
     }
 
     private int writeRepositorySection(Sheet sheet, int rowIndex, RepositoryInfo repository, ExcelCellStyles styles) {

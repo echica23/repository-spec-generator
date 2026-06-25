@@ -5,12 +5,15 @@ import com.xxx.generator.model.MethodInfo;
 import com.xxx.generator.model.ParameterInfo;
 import com.xxx.generator.model.RepositoryInfo;
 import com.xxx.generator.model.TypeInfo;
+import com.xxx.generator.model.XmlResource;
 import com.xxx.generator.parser.JavaSourceParser;
 import com.xxx.generator.resolver.TypeResolver;
+import com.xxx.generator.resolver.XmlResolver;
 import com.xxx.generator.scanner.RepositoryScanner;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 public class Main {
 
@@ -24,6 +27,7 @@ public class Main {
         RepositoryScanner scanner = new RepositoryScanner();
         JavaSourceParser parser = new JavaSourceParser();
         TypeResolver typeResolver = new TypeResolver();
+        XmlResolver xmlResolver = new XmlResolver();
         ExcelWriter excelWriter = new ExcelWriter();
 
         List<Path> repositoryPaths = scanner.scan(srcRoot, options.repository());
@@ -43,7 +47,8 @@ public class Main {
             }
 
             Path outputPath = outputDir.resolve(repositoryInfo.name() + ".xlsx");
-            excelWriter.write(outputPath, repositoryInfo, typeInfos);
+            Optional<XmlResource> xmlResource = xmlResolver.resolve(repositoryPath);
+            excelWriter.write(outputPath, repositoryInfo, typeInfos, xmlResource);
             System.out.println("Excel output: " + outputPath.toAbsolutePath());
         }
     }

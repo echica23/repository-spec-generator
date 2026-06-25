@@ -19,12 +19,14 @@ final class ExcelCellStyles {
     private final CellStyle sectionHeaderStyle;
     private final CellStyle dataStyle;
     private final CellStyle noteStyle;
+    private final CellStyle wrapTextStyle;
 
     ExcelCellStyles(Workbook workbook) {
         headerStyle = createHeaderStyle(workbook);
         sectionHeaderStyle = createSectionHeaderStyle(workbook);
         dataStyle = createDataStyle(workbook, false);
         noteStyle = createDataStyle(workbook, true);
+        wrapTextStyle = createDataStyle(workbook, true);
     }
 
     CellStyle headerStyle() {
@@ -41,6 +43,10 @@ final class ExcelCellStyles {
 
     CellStyle noteStyle(int columnIndex) {
         return columnIndex == NOTE_COLUMN_INDEX ? noteStyle : dataStyle;
+    }
+
+    CellStyle wrapTextStyle() {
+        return wrapTextStyle;
     }
 
     private CellStyle createHeaderStyle(Workbook workbook) {

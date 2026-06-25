@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.repository.BookRepository">
+
+    <select id="findById" resultType="com.example.entity.Book">
+        SELECT
+            id,
+            isbn,
+            title,
+            author
+        FROM book
+        WHERE id = #{id}
+    </select>
+
+    <insert id="save">
+        INSERT INTO book (isbn, title, author)
+        VALUES (#{book.isbn}, #{book.title}, #{book.author})
+    </insert>
+
+</mapper>
